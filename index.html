@@ -1,384 +1,96 @@
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-  <!-- Метатег viewport делает страницу адаптивной на смартфонах -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta charset="UTF-8">
-  <title>Таблетки – щоденник прийому</title>
-  <style>
-    /* Базовые сбросы стилей для предсказуемых размеров элементов */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#2878d8"><link rel="manifest" href="manifest.webmanifest">
+<title>💊 Таблетки — дневник приёма</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f5f7;color:#17202a;font:16px Arial,sans-serif}
+.wrap{max-width:1100px;margin:auto;padding:8px}.card,.tablebox{background:#fff;border-radius:15px;padding:13px;margin-bottom:10px;box-shadow:0 2px 10px #0001}
+h1{font-size:21px;margin:0 0 10px}.bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+button,input,select{font:inherit}button{border:0;border-radius:8px;padding:9px 12px}.primary{background:#2878d8;color:white}.secondary{background:#edf1f4}.danger{background:#ffeaea;color:#c62828}
+input,select{border:1px solid #dfe4e8;border-radius:8px;padding:8px;background:#fff}.date{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+.stats,.small{font-size:13px;color:#6b7680;margin-top:8px}.next,.take{padding:10px;border-radius:10px;margin-top:8px}.next{background:#eaf3ff;border-left:5px solid #2878d8}.take{background:#fff3e6;border-left:5px solid #f08a24}
+.pills{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}.pill{background:#fff;border:1px solid #f0d0aa;border-radius:9px;padding:7px 9px;font-weight:bold}.pill small{display:block;color:#6b7680;font-weight:normal}
+.tablebox{overflow:auto}.title{font-weight:bold}.sub{font-size:12px;color:#6b7680;padding:5px 0 10px}
+table{width:100%;border-collapse:collapse;min-width:650px}th,td{border-bottom:1px solid #dfe4e8;padding:8px 6px;text-align:center}
+th{background:#f8fafb;font-size:12px;position:sticky;top:0;z-index:2}.med{text-align:left;font-weight:bold;position:sticky;left:0;background:#fff;z-index:1;min-width:145px}.dose{font-size:12px;color:#6b7680;margin-top:2px}
+.check input{width:24px;height:24px;accent-color:#2ca24c}.actual{font-size:10px;color:#24763b;min-height:13px}
+.done,.done .med{background:#eaf8ee}.empty{text-align:center;color:#6b7680;padding:30px}
+dialog{border:0;border-radius:15px;width:min(520px,94vw);padding:0;box-shadow:0 10px 50px #0005}.dlg{padding:17px}dialog::backdrop{background:#0006}
+.field{margin:10px 0}.field label{display:block;font-size:12px;color:#6b7680;margin-bottom:4px}.field input[type=text],.field input[type=date]{width:100%}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:7px}.timerow{display:flex;gap:5px;align-items:center}.timerow input{flex:1}
+.archive{border:1px solid #dfe4e8;border-radius:9px;padding:9px;margin:7px 0}
+@media(max-width:650px){.wrap{padding:7px}.med{min-width:125px}.tablebox{overflow:auto}}
+</style></head><body><div class="wrap">
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f4f6f9;
-      color: #333;
-      padding: 12px;
-      display: flex;
-      justify-content: center;
-    }
+<div class="card"><h1>💊 Таблетки — дневник приёма</h1>
+<div class="date"><b>Дата:</b><input id="date" type="date"><button class="secondary" onclick="today()">Сегодня</button></div>
+<div class="bar">
+<button class="primary" onclick="add()">＋ Добавить препарат</button>
+<button class="primary" onclick="copyTomorrow()">📋 Список на завтра</button>
+<button class="secondary" onclick="archive()">📚 Архив</button>
+<button class="secondary" onclick="clearDay()">Очистить отметки</button>
+<button class="secondary" onclick="backup()">Сохранить</button>
+<button class="secondary" onclick="document.getElementById('file').click()">Загрузить</button>
+<input id="file" type="file" accept=".json" hidden onchange="restore(event)">
+</div><div id="stats" class="stats"></div><div id="next"></div><div id="take"></div></div>
 
-    /* Главный контейнер (подстраивается под любую ширину экрана телефона) */
-    .container {
-      width: 100%;
-      max-width: 480px;
-      background: #ffffff;
-      padding: 24px 16px;
-      border-radius: 16px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-    }
+<div class="tablebox"><div class="title">Приёмы по времени</div>
+<div class="sub">Один препарат — одна строка. Если приёмов несколько, у препарата несколько галочек.</div>
+<table><thead id="head"></thead><tbody id="body"></tbody></table><div id="empty" class="empty">Препаратов нет.</div></div>
 
-    .header-title {
-      font-size: 22px;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* Секция выбора даты */
-    .date-section {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-      flex-wrap: wrap; /* Переносит элементы, если экран слишком узкий */
-    }
-
-    .date-section label {
-      font-weight: bold;
-      font-size: 16px;
-    }
-
-    .date-section select {
-      flex: 1 1 140px;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 16px;
-      background: #fff;
-    }
-
-    .btn-today {
-      padding: 10px 14px;
-      background-color: #6c757d;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    /* Кнопки основных действий */
-    .action-buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 24px;
-    }
-
-    .btn-main {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .btn-blue { background-color: #007aff; color: white; }
-    .btn-gray { background-color: #e9ecef; color: #495057; border: 1px solid #ced4da; }
-
-    /* Рамка формы добавления лекарства */
-    .add-form-box {
-      border: 1px dashed #bcc4cc;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 24px;
-    }
-
-    .add-form-box h4 {
-      font-size: 15px;
-      margin-bottom: 12px;
-      color: #212529;
-    }
-
-    /* ИСПРАВЛЕНО: Эластичный ряд формы, где кнопка больше не улетает */
-    .add-form-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap; /* Безопасный перенос на самых микроскопических экранах */
-    }
-
-    .input-text {
-      flex: 3 1 160px; /* Тянется во всю свободную ширину */
-      padding: 12px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 16px; /* Защита от авто-зума страниц на iPhone */
-    }
-
-    .input-number {
-      flex: 1 1 50px;
-      width: 60px;
-      padding: 12px;
-      text-align: center;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-
-    .btn-add {
-      flex: 1 1 80px;
-      padding: 12px 10px;
-      background-color: #007aff;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-      font-size: 15px;
-      white-space: nowrap; /* Запрещает тексту кнопки переноситься внутри себя */
-      cursor: pointer;
-    }
-
-    .form-hint {
-      font-size: 13px;
-      color: #6c757d;
-      margin-top: 8px;
-    }
-
-    /* Список медикаментов */
-    .section-title {
-      font-size: 18px;
-      margin-bottom: 14px;
-      border-bottom: 2px solid #f4f6f9;
-      padding-bottom: 6px;
-    }
-
-    .pills-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-
-    .pill-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px;
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 10px;
-      gap: 10px;
-    }
-
-    .pill-info {
-      flex: 1;
-      font-size: 16px;
-    }
-
-    .checkbox-container {
-      display: flex;
-      gap: 6px;
-    }
-
-    .checkbox-container input[type="checkbox"] {
-      width: 24px;
-      height: 24px;
-      cursor: pointer;
-    }
-
-    .btn-delete {
-      background: none;
-      border: none;
-      color: #dc3545;
-      font-size: 18px;
-      cursor: pointer;
-      padding: 0 4px;
-    }
-
-    /* Блок инструкции внизу */
-    .instructions {
-      background-color: #fff3cd;
-      border: 1px solid #ffeeba;
-      padding: 14px;
-      border-radius: 10px;
-      font-size: 14px;
-      color: #856404;
-      line-height: 1.4;
-    }
-
-    .instructions ul {
-      margin-left: 18px;
-      margin-top: 6px;
-    }
-  </style>
-</head>
-<body>
-
-<div class="container">
-  
-  <h2 class="header-title">💊 Таблетки – щоденник прийому</h2>
-
-  <!-- Секция выбора даты -->
-  <div class="date-section">
-    <label>Дата прийому:</label>
-    <select id="dateSelect">
-      <option value="Сьогодні">Сьогодні</option>
-      <option value="Завтра">Завтра</option>
-    </select>
-    <button class="btn-today" onclick="setToToday()">Сьогодні</button>
-  </div>
-
-  <!-- Кнопки управления -->
-  <div class="action-buttons">
-    <button class="btn-main btn-blue" onclick="duplicateForTomorrow()">📋 Дублювати на завтра</button>
-    <button class="btn-main btn-gray" onclick="clearDayMarks()">Очистити відмітки за день</button>
-  </div>
-
-  <!-- Форма добавления -->
-  <div class="add-form-box">
-    <h4>Додати новий препарат:</h4>
-    <div class="add-form-row">
-      <input type="text" id="pillName" class="input-text" placeholder="Назва препарату (напр., Ібупрофен)">
-      <input type="number" id="pillCount" class="input-number" value="1" min="1" max="6">
-      <button class="btn-add" onclick="addNewPill()">+ Додати</button>
-    </div>
-    <p class="form-hint">Вкажіть назву та кількість прийомів (галочок) на день</p>
-  </div>
-
-  <!-- Список приемов -->
-  <h3 class="section-title">Прийом ліків (в порядку запису)</h3>
-  <div class="pills-list" id="pillsContainer">
-    <!-- Сюда скрипт динамически добавит лекарства -->
-  </div>
-
-  <!-- Инструкция -->
-  <div class="instructions">
-    <strong>💡 Як додати на головний екран:</strong>
-    <ul>
-      <li>На <strong>Android (Chrome)</strong>: натисніть три крапки праворуч вгорі та оберіть <strong>«Додати на головний екран»</strong>.</li>
-      <li>На <strong>iPhone (Safari)</strong>: натисніть кнопку <strong>«Поділитися»</strong> (квадрат зі стрілкою) та оберіть <strong>«На екран "Додому"»</strong>.</li>
-    </ul>
-  </div>
-
+<div class="card small">Препараты отображаются строго в порядке добавления. Сортируется только строка времени.</div>
 </div>
 
+<dialog id="dlg"><div class="dlg"><h2 id="dlgtitle">Добавить препарат</h2>
+<div class="field"><label>Название</label><input id="name" type="text"></div>
+<div class="field"><label>Дозировка / примечание</label><input id="dose" type="text"></div>
+<div class="field"><label>Дата начала</label><input id="from" type="date"></div>
+<div class="field"><label>Дата окончания</label><input id="to" type="date"></div>
+<div class="field"><label>Количество приёмов</label><select id="count" onchange="times()"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+<div class="field"><label>Время</label><div id="times" class="times"></div></div>
+<div class="bar" style="justify-content:flex-end"><button class="secondary" onclick="dlg.close()">Отмена</button><button class="primary" onclick="saveMed()">Сохранить</button></div>
+</div></dialog>
+
+<dialog id="arch"><div class="dlg"><h2>📚 Архив</h2><div id="archiveList"></div><div class="bar" style="justify-content:flex-end"><button class="secondary" onclick="arch.close()">Закрыть</button></div></div></dialog>
+
 <script>
-  // Хранилище данных приложения в оперативной памяти (с авто-сохранением в LocalStorage)
-  let pillsData = JSON.parse(localStorage.getItem('pills_diary_data')) || [
-    { id: 1, name: 'Вітамін C', total: 2, checked: [false, false] }
-  ];
-
-  // Отрисовка списка лекарств на экран
-  function renderPills() {
-    const container = document.getElementById('pillsContainer');
-    container.innerHTML = '';
-
-    if (pillsData.length === 0) {
-      container.innerHTML = '<p style="color:#888; text-align:center; font-style:italic;">Список порожній. Додайте препарат вище.</p>';
-      return;
-    }
-
-    pillsData.forEach(pill => {
-      const item = document.createElement('div');
-      item.className = 'pill-item';
-
-      // Генерация чекбоксов (галочек)
-      let checkboxesHtml = '';
-      for (let i = 0; i < pill.total; i++) {
-        const isChecked = pill.checked[i] ? 'checked' : '';
-        checkboxesHtml += `<input type="checkbox" ${isChecked} onchange="toggleCheckbox(${pill.id}, ${i})">`;
-      }
-
-      item.innerHTML = `
-        <div class="pill-info"><strong>${pill.name}</strong></div>
-        <div class="checkbox-container">${checkboxesHtml}</div>
-        <button class="btn-delete" onclick="deletePill(${pill.id})">🗑️</button>
-      `;
-      container.appendChild(item);
-    });
-  }
-
-  // Добавление новой таблетки
-  function addNewPill() {
-    const nameInput = document.getElementById('pillName');
-    const countInput = document.getElementById('pillCount');
-    const name = nameInput.value.trim();
-    const count = parseInt(countInput.value) || 1;
-
-    if (!name) {
-      alert('Будь ласка, введіть назву препарату.');
-      return;
-    }
-
-    const newPill = {
-      id: Date.now(),
-      name: name,
-      total: count,
-      checked: new Array(count).fill(false)
-    };
-
-    pillsData.push(newPill);
-    saveData();
-    renderPills();
-
-    // Очищаем текстовое поле после добавления
-    nameInput.value = '';
-    countInput.value = '1';
-  }
-
-  // Переключение состояния галочки
-  function toggleCheckbox(pillId, index) {
-    const pill = pillsData.find(p => p.id === pillId);
-    if (pill) {
-      pill.checked[index] = !pill.checked[index];
-      saveData();
-    }
-  }
-
-  // Удаление таблетки из списка
-  function deletePill(pillId) {
-    if (confirm('Видалити цей препарат зі списку?')) {
-      pillsData = pillsData.filter(p => p.id !== pillId);
-      saveData();
-      renderPills();
-    }
-  }
-
-  // Сбросить все галочки за текущий день
-  function clearDayMarks() {
-    pillsData.forEach(pill => {
-      pill.checked = new Array(pill.total).fill(false);
-    });
-    saveData();
-    renderPills();
-  }
-
-  // Дублирование списка лекарств (перенос структуры без галочек)
-  function duplicateForTomorrow() {
-    document.getElementById('dateSelect').value = 'Завтра';
-    // Очищаем галочки для "нового" дня
-    pillsData.forEach(pill => {
-      pill.checked = new Array(pill.total).fill(false);
-    });
-    saveData();
-    renderPills();
-    alert('Список продубльовано на завтра! Відмітки очищено.');
-  }
-
-  // Возврат селектора даты к значению "Сегодня"
-  function setToToday() {
-    document.getElementById('dateSelect').value = 'Сьогодні';
-  }
-
+const KEY="tabletDiaryGitHubV1";let S=JSON.parse(localStorage.getItem(KEY)||'null')||{meds:[],plans:{}};let edit=null;
+const $=x=>document.getElementById(x),D=$("date");D.value=new Date().toISOString().slice(0,10);D.onchange=render;
+const esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function dm(d){return d.split("-").reverse().join(".")} function tm(t){let[a,b]=t.split(":").map(Number);return a*60+b}
+function tomorrow(d){let x=new Date(d+"T12:00:00");x.setDate(x.getDate()+1);return x.toISOString().slice(0,10)}
+function list(){let d=D.value;return S.plans[d]||S.meds.filter(m=>(!m.from||d>=m.from)&&(!m.to||d<=m.to))}
+function render(){
+ let d=D.value,ms=list(),times=[...new Set(ms.flatMap(m=>m.times||[]))].sort((a,b)=>tm(a)-tm(b)),h=$("head"),b=$("body");
+ h.innerHTML=ms.length?'<tr><th>Препарат</th>'+times.map(t=>`<th>${t}</th>`).join("")+"<th>Действия</th></tr>":"";
+ b.innerHTML="";$("empty").style.display=ms.length?"none":"block";if(!ms.length){$("stats").textContent="На "+dm(d)+" препаратов нет.";return}
+ let total=0,taken=0;ms.forEach(m=>(m.times||[]).forEach((t,i)=>{total++;if(m.records?.[d]?.[i])taken++}));
+ $("stats").textContent=`${dm(d)}: принято ${taken} из ${total}.`;
+ ms.forEach(m=>{let tr=document.createElement("tr"),all=m.times.length&&m.times.every((_,i)=>m.records?.[d]?.[i]);if(all)tr.className="done";
+ let c=`<td class="med">${esc(m.name)}${m.dose?`<div class="dose">${esc(m.dose)}</div>`:""}</td>`;
+ times.forEach(t=>{let i=(m.times||[]).indexOf(t);if(i<0)c+="<td></td>";else{let r=m.records?.[d]?.[i];c+=`<td class="check"><input type="checkbox" ${r?"checked":""} onchange="toggle('${m.id}',${i},this)"><div class="actual">${r||""}</div></td>`}});
+ c+=`<td><button class="secondary" onclick="editMed('${m.id}')">✎</button> <button class="danger" onclick="del('${m.id}')">×</button></td>`;tr.innerHTML=c;b.appendChild(tr)});
+ let n=[];ms.forEach(m=>(m.times||[]).forEach((t,i)=>{if(!m.records?.[d]?.[i])n.push({m,t})}));n.sort((a,b)=>tm(a.t)-tm(b.t));
+ $("next").innerHTML=n[0]?`<div class="next"><b>⏰ Ближайший: ${n[0].t}</b> — ${esc(n[0].m.name)}</div>`:`<div class="next">✅ Все приёмы отмечены.</div>`;
+ let cur=new Date().getHours()*60+new Date().getMinutes(),near=n.filter(x=>{let q=tm(x.t)-cur;if(q<0)q+=1440;return q<=120});
+ $("take").innerHTML=near.length?`<div class="take"><b>🚪 Взять с собой на ближайшие 2 часа</b><div class="pills">${near.map(x=>`<div class="pill">${x.t}<small>${esc(x.m.name)}</small></div>`).join("")}</div></div>`:"";
+}
+function toggle(id,i,e){let m=list().find(x=>x.id==id),d=D.value;m.records=m.records||{};m.records[d]=m.records[d]||{};if(e.checked)m.records[d][i]=new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});else delete m.records[d][i];save();render()}
+function add(){edit=null;$("dlgtitle").textContent="Добавить препарат";$("name").value="";$("dose").value="";$("from").value=D.value;$("to").value="";$("count").value=1;times();dlg.showModal()}
+function times(v){let n=+$("count").value,defs=["08:00","13:00","18:00","22:00"];$("times").innerHTML=Array.from({length:n},(_,i)=>`<div class="timerow"><b>${i+1}.</b><input type="time" id="t${i}" value="${v?.[i]||defs[i]}"></div>`).join("")}
+function saveMed(){let name=$("name").value.trim();if(!name)return alert("Введите название.");let d=D.value,from=$("from").value,to=$("to").value,ts=[...document.querySelectorAll("#times input")].map(x=>x.value),ms=list();
+if(edit){let m=ms.find(x=>x.id==edit);Object.assign(m,{name,dose:$("dose").value.trim(),from,to,times:ts})}else{let m={id:crypto.randomUUID(),name,dose:$("dose").value.trim(),from,to,times:ts,records:{}};if(S.plans[d])S.plans[d].push(m);else S.meds.push(m)}
+save();dlg.close();render()}
+function editMed(id){let m=list().find(x=>x.id==id);if(!m)return;edit=id;$("dlgtitle").textContent="Изменить препарат";$("name").value=m.name;$("dose").value=m.dose||"";$("from").value=m.from||D.value;$("to").value=m.to||"";$("count").value=m.times.length;times(m.times);dlg.showModal()}
+function del(id){if(!confirm("Удалить препарат?"))return;let d=D.value;if(S.plans[d])S.plans[d]=S.plans[d].filter(m=>m.id!=id);else S.meds=S.meds.filter(m=>m.id!=id);save();render()}
+function copyTomorrow(){let d=D.value,t=tomorrow(d),src=list();if(!src.length)return alert("На выбранный день нет списка.");if(S.plans[t]&&!confirm("На завтра уже есть отдельный список. Заменить?"))return;S.plans[t]=src.map(m=>({id:crypto.randomUUID(),name:m.name,dose:m.dose||"",from:t,to:m.to&&m.to>=t?m.to:"",times:[...m.times],records:{}}));save();if(confirm("Список скопирован на "+dm(t)+". Открыть завтра?"))D.value=t;render()}
+function today(){D.value=new Date().toISOString().slice(0,10);render()}
+function clearDay(){if(!confirm("Удалить отметки за "+dm(D.value)+"?"))return;list().forEach(m=>{if(m.records)delete m.records[D.value]});save();render()}
+function archive(){let dates=new Set(Object.keys(S.plans));S.meds.forEach(m=>Object.keys(m.records||{}).forEach(d=>dates.add(d)));let a=[...dates].sort().reverse();$("archiveList").innerHTML=a.length?a.map(d=>`<div class="archive"><b>${dm(d)}</b><br><span class="small">Нажмите, чтобы открыть этот день</span><br><button class="secondary" onclick="D.value='${d}';arch.close();render()">Открыть</button></div>`).join(""):'<div class="empty">Архив пока пуст.</div>';arch.showModal()}
+function backup(){let a=document.createElement("a"),b=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});a.href=URL.createObjectURL(b);a.download="tablet-diary-backup.json";a.click()}
+function restore(e){let f=e.target.files[0],r=new FileReader();r.onload=()=>{try{S=JSON.parse(r.result);save();render()}catch(_){alert("Ошибка файла")}};r.readAsText(f)}
+render();
+if("serviceWorker"in navigator&&location.protocol!="file:")navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+</script></body></html>

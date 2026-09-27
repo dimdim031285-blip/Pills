@@ -1,0 +1,9 @@
+{
+  "name": "Таблетки — дневник приёма",
+  "short_name": "Таблетки",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f7",
+  "theme_color": "#2878d8",
+  "lang": "ru"
+}
